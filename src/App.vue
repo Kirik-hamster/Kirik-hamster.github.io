@@ -61,11 +61,23 @@ export default {
     
     const currentTitle = computed(() => {
       const titles = {
+        '/': 'Главная',
+        '/home': 'Главная',
         '/orders': 'Заказы',
         '/incomes': 'Доходы',
-        '/sales': 'Продажи',
-        '/stocks': 'Склады'
+        '/sales': 'Продажи', 
+        '/stocks': 'Склады',
+        '/metric/sales': 'Метрика продаж',
+        '/metric/discount': 'Метрика скидок',
+        '/metric/cancels': 'Метрика отмен',
+        '/metric/regions': 'Метрика регионов',
+        '/article': 'Артикул'
       }
+      
+      if (route.path.startsWith('/article/')) {
+        return 'Артикул'
+      }
+      
       return titles[route.path] || 'Панель управления'
     })
     

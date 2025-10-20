@@ -7,6 +7,16 @@ const routes = [
     component: () => import('@/views/HomePage.vue')
   },
   {
+    path: '/metric/:id',
+    name: 'Metric',
+    component: () => import('@/views/MetricPage.vue')
+  },
+  {
+    path: '/article/:id',
+    name: 'Article',
+    component: () => import('@/views/ArticlePage.vue')
+  },
+  {
     path: '/orders',
     name: 'orders',
     component: () => import('@/views/OrdersPage.vue')
