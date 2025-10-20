@@ -2,6 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
+    path: '/home',
+    name: 'home',
+    component: () => import('@/views/HomePage.vue')
+  },
+  {
     path: '/orders',
     name: 'orders',
     component: () => import('@/views/OrdersPage.vue')
@@ -23,7 +28,7 @@ const routes = [
   },
   {
     path: '/',
-    redirect: '/orders' // Перенаправление на страницу заказов
+    redirect: '/home'
   }
 ]
 

@@ -3,7 +3,9 @@
     <!-- Боковая панель навигации -->
     <aside class="sidebar">
       <div class="logo">
-        <h2>My SPA</h2>
+        <router-link to="/home" class="nav-item">
+          <h2>My SPA</h2>
+        </router-link>
       </div>
       <nav class="nav-menu">
         <router-link to="/orders" class="nav-item">
