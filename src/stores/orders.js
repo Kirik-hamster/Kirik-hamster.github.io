@@ -84,6 +84,7 @@ export const useOrdersStore = defineStore('orders', () => {
           dateTo: filters.value.dateTo   
         }
       })
+      console.log(filters.value.dateFrom, filters.value.dateTo )
       console.log("orders: ", response.data.data)
       allOrders.value = response.data.data
       totalPages.value = Math.ceil(response.data.meta.total / limit.value)

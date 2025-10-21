@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { Line } from 'vue-chartjs'
 import { 
   Chart as ChartJS, 
@@ -14,16 +14,23 @@ import {
 
 ChartJS.register(Title, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale)
 
-// Тестовые данные для графика продаж
-const chartData = {
+const props = defineProps({
+  chartData: {
+    type: Object,
+    default: null
+  }
+})
+
+// Тестовые данные по умолчанию
+const defaultChartData = {
   labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
   datasets: [
     {
       label: 'Выручка, руб.',
       data: [120000, 190000, 150000, 250000, 220000, 300000, 280000],
       backgroundColor: '#f87979',
-      borderColor: '#f87979', // ДОБАВЬТЕ ЭТУ СТРОКУ
-      tension: 0.1 // ДОБАВЬТЕ ЭТУ СТРОКУ
+      borderColor: '#f87979',
+      tension: 0.1
     }
   ]
 }
@@ -46,12 +53,21 @@ const chartOptions = ref({
     }
   }
 })
+
+// Реактивные данные для графика
+const currentChartData = ref(defaultChartData)
+
+watch(() => props.chartData, (newData) => {
+  if (newData) {
+    currentChartData.value = newData
+  }
+}, { immediate: true })
 </script>
 
 <template>
   <div class="chart-container">
     <Line 
-      :data="chartData" 
+      :data="currentChartData" 
       :options="chartOptions"
     />
   </div>
@@ -59,7 +75,6 @@ const chartOptions = ref({
 
 <style scoped>
 .chart-container {
-  height: 200px; /* ЯВНО УКАЖИТЕ ВЫСОТУ */
-  height: 100%;
+  height: 200px;
 }
 </style>
