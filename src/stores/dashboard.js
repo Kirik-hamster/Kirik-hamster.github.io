@@ -393,7 +393,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     // Сортируем по общему количеству заказов и берем топ-5
     const topRegions = regionsData
         .sort((a, b) => (b.current_orders + b.previous_orders) - (a.current_orders + a.previous_orders))
-        .slice(0, 5)
+        .slice(0, 10)
     
     return {
         labels: topRegions.map(region => {
