@@ -311,3 +311,10 @@
     transform: translateX(0);
   }
 }
+
+.cache-info {
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: 5px;
+  font-style: italic;
+}

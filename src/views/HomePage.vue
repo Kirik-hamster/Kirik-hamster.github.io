@@ -40,15 +40,21 @@ export default {
       }).format(amount)
     },
     // Метод для загрузки и отображения реальных данных
-    async loadRealData() {
+    async loadRealData(forceRefresh = false) {
       this.loading = true
       this.dataLoaded = false
 
       try {
         const dashboardStore = useDashboardStore()
-        const comparisonData = await dashboardStore.getComparisonData()
         
-        console.log('=== РЕАЛЬНЫЕ ДАННЫЕ ЗАГРУЖЕНЫ ===')
+        // Принудительное обновление очищает кэш
+        if (forceRefresh) {
+          dashboardStore.clearCache()
+        }
+        
+        const comparisonData = await dashboardStore.getComparisonData(forceRefresh)
+        
+        console.log('=== ДАННЫЕ ЗАГРУЖЕНЫ ===', forceRefresh ? '(принудительно)' : '(из кэша)')
         
         // Получаем данные для графиков (агрегация по датам)
         const chartData = dashboardStore.getChartDataByDate()
@@ -111,7 +117,7 @@ export default {
         this.regionsData = topRegions
 
         this.dataLoaded = true
-        console.log('Данные таблиц обновлены реальными данными!')
+        console.log('Данные таблиц обновлены!')
         
       } catch (error) {
         console.error('Ошибка загрузки данных:', error)
@@ -166,7 +172,7 @@ export default {
   },
   mounted() {
     // При загрузке страницы можно сразу загрузить данные
-    this.loadRealData()
+    this.loadRealData(false)
   }
 }
 </script>
@@ -188,7 +194,7 @@ export default {
         </div>
       </div>
     </div>
-    
+
     <div v-if="dataLoaded" class="page-content">
       <div class="page-header">
         <h1>Аналитическая панель Wildberries</h1>

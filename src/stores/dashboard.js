@@ -11,6 +11,15 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const previousWeekOrders = ref([])
     const loading = ref(false)
 
+    // Кэш для данных
+    const dataCache = ref({
+        comparisonData: null,
+        chartData: null,
+        regionsChartData: null,
+        lastFetchTime: null,
+        cacheDuration: 10 * 60 * 1000 // 10 минут кэша
+    })
+
     // Функция для получения даты в формате YYYY-MM-DD
     const formatDate = (date) => {
         return date.toISOString().split('T')[0]
@@ -47,17 +56,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
         const orders = []
         
         try {
-            for (let i = 0; i < daysCount; i++) {
-                const date = new Date()
-                const datePrew = new Date()
-                date.setDate(date.getDate() - (startOffset + i))
-                datePrew.setDate(date.getDate() - 1)
-                const dateStr = formatDate(date)
-                const datePrewStr = formatDate(datePrew)
+            const date = new Date()
+            const datePrew = new Date()
+            date.setDate(date.getDate() - (startOffset))
+            datePrew.setDate(date.getDate() - (startOffset + daysCount))
+            const dateStr = formatDate(date)
+            const datePrewStr = formatDate(datePrew)
 
-                const dayOrders = await fetchDayData(datePrewStr, dateStr)
-                orders.push(...dayOrders)
-            }
+            const dayOrders = await fetchDayData(datePrewStr, dateStr)
+            orders.push(...dayOrders)
+          
         } catch (error) {
             console.error(`Ошибка загрузки данных за период (offset: ${startOffset}, days: ${daysCount}):`, error)
             throw error // Пробрасываем ошибку для обработки в вызывающих функциях
@@ -72,7 +80,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         currentWeekOrders.value = []
 
         try {
-            // Загружаем последние 7 дней (от 0 до 6 дней назад)
+            // Загружаем последние 7 дней 
             currentWeekOrders.value = await fetchWeekData(0, 7)
         } catch (error) {
             console.error('Ошибка загрузки текущей недели:', error)
@@ -87,8 +95,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
         previousWeekOrders.value = []
 
         try {
-            // Загружаем дни с 7 по 13 дней назад
-            previousWeekOrders.value = await fetchWeekData(7, 7)
+            // Загружаем дни с 8 по 14 дней назад
+            previousWeekOrders.value = await fetchWeekData(8, 7)
         } catch (error) {
             console.error('Ошибка загрузки прошлой недели:', error)
         } finally {
@@ -184,64 +192,67 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     // НОВАЯ ФУНКЦИЯ: Агрегация данных по датам для графиков
     const getChartDataByDate = () => {
-        // Группируем заказы по датам
-        const ordersByDate = {}
+    // Объединяем данные за обе недели
+    const allOrders = [...currentWeekOrders.value, ...previousWeekOrders.value]
+    
+    // Группируем заказы по датам
+    const ordersByDate = {}
+    
+    allOrders.forEach(order => {
+        const orderDate = new Date(order.date)
+        const dateKey = orderDate.toISOString().split('T')[0]
         
-        currentWeekOrders.value.forEach(order => {
-            const orderDate = new Date(order.date)
-            const dateKey = orderDate.toISOString().split('T')[0] // YYYY-MM-DD
-            
-            if (!ordersByDate[dateKey]) {
-                ordersByDate[dateKey] = []
-            }
-            ordersByDate[dateKey].push(order)
-        })
-        
-        // Получаем массив дат за последние 7 дней
-        const last7Days = []
-        for (let i = 0; i < 7; i++) {
-            const date = new Date()
-            date.setDate(date.getDate() - i)
-            last7Days.push(formatDate(date))
+        if (!ordersByDate[dateKey]) {
+            ordersByDate[dateKey] = []
         }
+        ordersByDate[dateKey].push(order)
+    })
+    
+    // Получаем массив дат за последние 14 дней
+    const last14Days = []
+    for (let i = 13; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        last14Days.push(formatDate(date))
+    }
+    
+    // Агрегируем данные для каждой даты
+    const revenueByDay = []
+    const salesByDay = []
+    const cancellationsByDay = []
+    const discountByDay = []
+    
+    last14Days.forEach(date => {
+        const dayOrders = ordersByDate[date] || []
         
-        // Агрегируем данные для каждой даты
-        const revenueByDay = []
-        const salesByDay = []
-        const cancellationsByDay = []
-        const discountByDay = []
+        // Выручка за день (только не отмененные)
+        const dayRevenue = dayOrders
+            .filter(order => !order.is_cancel)
+            .reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0)
         
-        last7Days.forEach(date => {
-            const dayOrders = ordersByDate[date] || []
-            
-            // Выручка за день (только не отмененные)
-            const dayRevenue = dayOrders
-                .filter(order => !order.is_cancel)
-                .reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0)
-            
-            // Продажи за день (количество не отмененных)
-            const daySales = dayOrders.filter(order => !order.is_cancel).length
-            
-            // Отмены за день
-            const dayCancellations = dayOrders.filter(order => order.is_cancel).length
-            
-            // Средняя скидка за день (только не отмененные)
-            const validDiscountOrders = dayOrders.filter(order => !order.is_cancel && order.discount_percent)
-            const dayDiscount = validDiscountOrders.length > 0 
-                ? validDiscountOrders.reduce((sum, order) => sum + (order.discount_percent || 0), 0) / validDiscountOrders.length
-                : 0
-            
-            revenueByDay.push(dayRevenue)
-            salesByDay.push(daySales)
-            cancellationsByDay.push(dayCancellations)
-            discountByDay.push(dayDiscount)
-        })
+        // Продажи за день (количество не отмененных)
+        const daySales = dayOrders.filter(order => !order.is_cancel).length
         
-        // Форматируем даты для labels (например: "21 окт")
-        const formattedLabels = last7Days.map(dateStr => {
-            const date = new Date(dateStr)
-            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-        }).reverse()
+        // Отмены за день
+        const dayCancellations = dayOrders.filter(order => order.is_cancel).length
+        
+        // Средняя скидка за день (только не отмененные)
+        const validDiscountOrders = dayOrders.filter(order => !order.is_cancel && order.discount_percent)
+        const dayDiscount = validDiscountOrders.length > 0 
+            ? validDiscountOrders.reduce((sum, order) => sum + (order.discount_percent || 0), 0) / validDiscountOrders.length
+            : 0
+        
+        revenueByDay.push(dayRevenue)
+        salesByDay.push(daySales)
+        cancellationsByDay.push(dayCancellations)
+        discountByDay.push(dayDiscount)
+    })
+    
+    // Форматируем даты для labels
+    const formattedLabels = last14Days.map(dateStr => {
+        const date = new Date(dateStr)
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+    })
         
         // Реверсируем массивы данных, чтобы шли от старых к новым датам
         return {
@@ -358,51 +369,76 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     // Функция для получения данных по регионам для графика
     const getRegionsChartData = () => {
-        const currentRegionsGrouped = groupByRegions(currentWeekOrders.value)
-        
-        // Берем топ-5 регионов по количеству заказов
-        const topRegions = Object.values(currentRegionsGrouped)
-            .sort((a, b) => b.orders - a.orders)
-            .slice(0, 5)
+    const currentRegionsGrouped = groupByRegions(currentWeekOrders.value)
+    const previousRegionsGrouped = groupByRegions(previousWeekOrders.value)
+    
+    // Объединяем регионы из обеих недель
+    const allRegions = new Set([
+        ...Object.keys(currentRegionsGrouped),
+        ...Object.keys(previousRegionsGrouped)
+    ])
+    
+    // Создаем данные для сравнения
+    const regionsData = Array.from(allRegions).map(regionName => {
+        const current = currentRegionsGrouped[regionName] || { orders: 0 }
+        const previous = previousRegionsGrouped[regionName] || { orders: 0 }
         
         return {
-            labels: topRegions.map(region => {
-                // Сокращаем длинные названия регионов для лучшего отображения
-                const regionName = region.region
-                if (regionName.includes('область')) {
-                    return regionName.replace(' область', '')
-                }
-                if (regionName.includes('край')) {
-                    return regionName.replace(' край', '')
-                }
-                return regionName
-            }),
-            datasets: [
-                {
-                    label: 'Количество заказов',
-                    data: topRegions.map(region => region.orders),
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.5)',
-                        'rgba(54, 162, 235, 0.5)',
-                        'rgba(255, 206, 86, 0.5)',
-                        'rgba(75, 192, 192, 0.5)',
-                        'rgba(153, 102, 255, 0.5)'
-                    ],
-                    borderColor: [
-                        'rgb(255, 99, 132)',
-                        'rgb(54, 162, 235)',
-                        'rgb(255, 206, 86)',
-                        'rgb(75, 192, 192)',
-                        'rgb(153, 102, 255)'
-                    ],
-                    borderWidth: 1
-                }
-            ]
+            region: regionName,
+            current_orders: current.orders,
+            previous_orders: previous.orders
         }
+    })
+    
+    // Сортируем по общему количеству заказов и берем топ-5
+    const topRegions = regionsData
+        .sort((a, b) => (b.current_orders + b.previous_orders) - (a.current_orders + a.previous_orders))
+        .slice(0, 5)
+    
+    return {
+        labels: topRegions.map(region => {
+            const regionName = region.region
+            if (regionName.includes('область')) {
+                return regionName.replace(' область', '')
+            }
+            if (regionName.includes('край')) {
+                return regionName.replace(' край', '')
+            }
+            return regionName
+        }),
+        datasets: [
+            {
+                label: 'Текущая неделя',
+                data: topRegions.map(region => region.current_orders),
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1
+            },
+            {
+                label: 'Предыдущая неделя',
+                data: topRegions.map(region => region.previous_orders),
+                backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                borderColor: 'rgb(255, 99, 132)',
+                borderWidth: 1
+            }
+        ]
+    }
     }
 
-    // Главная функция для получения всех данных сравнения
-    const getComparisonData = async () => {
+    // Главная функция для получения всех данных сравнения c кэшированием
+    const getComparisonData = async (forceRefresh = false) => {
+        // Проверяем кэш
+        const now = Date.now()
+        if (!forceRefresh && 
+            dataCache.value.comparisonData && 
+            dataCache.value.lastFetchTime && 
+            (now - dataCache.value.lastFetchTime) < dataCache.value.cacheDuration) {
+            console.log('Используем кэшированные данные')
+            return dataCache.value.comparisonData
+        }
+        
+        console.log('Загружаем свежие данные с API')
+
         // Загружаем обе недели
         await fetchCurrentWeekData()
         await fetchPreviousWeekData()
@@ -419,10 +455,39 @@ export const useDashboardStore = defineStore('dashboard', () => {
         const comparisonData = createComparisonData(currentGrouped, previousGrouped)
         const regionsComparisonData = createRegionsComparisonData(currentRegionsGrouped, previousRegionsGrouped)
         
-        console.log('Данные для сравнения готовы:', comparisonData)
-        return {
-            articles: comparisonData,
-            regions: regionsComparisonData
+        // Сохраняем в кэш
+        dataCache.value = {
+            comparisonData: {
+                articles: comparisonData,
+                regions: regionsComparisonData
+            },
+            chartData: getChartDataByDate(),
+            regionsChartData: getRegionsChartData(),
+            lastFetchTime: now,
+            cacheDuration: dataCache.value.cacheDuration
+        }
+        
+        console.log('Данные загружены и закэшированы')
+        return dataCache.value.comparisonData
+    }
+
+    // Функции для получения кэшированных данных
+    const getCachedChartData = () => {
+        return dataCache.value.chartData || getChartDataByDate()
+    }
+
+    const getCachedRegionsChartData = () => {
+        return dataCache.value.regionsChartData || getRegionsChartData()
+    }
+
+    // Функция для очистки кэша (принудительное обновление)
+    const clearCache = () => {
+        dataCache.value = {
+            comparisonData: null,
+            chartData: null,
+            regionsChartData: null,
+            lastFetchTime: null,
+            cacheDuration: dataCache.value.cacheDuration
         }
     }
     return {
@@ -432,7 +497,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
         fetchCurrentWeekData,
         fetchPreviousWeekData,
         getComparisonData,
-        getChartDataByDate,
-        getRegionsChartData 
+        getChartDataByDate: getCachedChartData,
+        getRegionsChartData: getCachedRegionsChartData,
+        clearCache,
+        dataCache
     }
 })
