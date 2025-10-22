@@ -253,6 +253,154 @@ export const useDashboardStore = defineStore('dashboard', () => {
         }
     }
 
+    // Функция для группировки заказов по регионам
+    const groupByRegions = (orders) => {
+        const grouped = {}
+        
+        orders.forEach(order => {
+            const region = order.oblast
+            if (!grouped[region]) {
+                grouped[region] = {
+                    region: region,
+                    orders: 0,           // Общее количество заказов
+                    sales: 0,            // Количество продаж (не отмененные)
+                    revenue: 0,          // Сумма выручки
+                    cancellations: 0,    // Количество отмен
+                    discountSum: 0,      // Сумма скидок для расчета средней
+                    discountCount: 0     // Количество заказов со скидкой
+                }
+            }
+            
+            const regionData = grouped[region]
+            
+            if (!order.is_cancel) {
+                // Не отмененный заказ - считаем как продажу
+                regionData.sales++
+                regionData.revenue += parseFloat(order.total_price) || 0
+                regionData.discountSum += order.discount_percent || 0
+                regionData.discountCount++
+            } else {
+                // Отмененный заказ
+                regionData.cancellations++
+            }
+            
+            regionData.orders++
+        })
+        
+        // Вычисляем среднюю скидку для каждого региона
+        Object.values(grouped).forEach(region => {
+            region.avgDiscount = region.discountCount > 0 
+                ? region.discountSum / region.discountCount 
+                : 0
+        })
+        
+        return grouped
+    }
+
+    // Функция для создания массива сравнения по регионам
+    const createRegionsComparisonData = (currentWeekGrouped, previousWeekGrouped) => {
+        const comparison = []
+        
+        // Собираем все уникальные регионы из обеих недель
+        const allRegions = new Set([
+            ...Object.keys(currentWeekGrouped),
+            ...Object.keys(previousWeekGrouped)
+        ])
+        
+        allRegions.forEach(regionName => {
+            const current = currentWeekGrouped[regionName] || {
+                orders: 0,
+                sales: 0,
+                revenue: 0,
+                cancellations: 0,
+                avgDiscount: 0
+            }
+            
+            const previous = previousWeekGrouped[regionName] || {
+                orders: 0,
+                sales: 0,
+                revenue: 0,
+                cancellations: 0,
+                avgDiscount: 0
+            }
+            
+            // Функция для расчета процентного изменения
+            const calculateChange = (currentVal, previousVal) => {
+                if (previousVal === 0) return currentVal > 0 ? 100 : 0
+                return ((currentVal - previousVal) / previousVal) * 100
+            }
+            
+            comparison.push({
+                region: regionName,
+                // Текущая неделя
+                current_orders: current.orders,
+                current_sales: current.sales,
+                current_revenue: current.revenue,
+                current_cancellations: current.cancellations,
+                current_discount: current.avgDiscount,
+                // Прошлая неделя
+                previous_orders: previous.orders,
+                previous_sales: previous.sales,
+                previous_revenue: previous.revenue,
+                previous_cancellations: previous.cancellations,
+                previous_discount: previous.avgDiscount,
+                // Изменения в %
+                orders_change: calculateChange(current.orders, previous.orders),
+                sales_change: calculateChange(current.sales, previous.sales),
+                revenue_change: calculateChange(current.revenue, previous.revenue),
+                cancellations_change: calculateChange(current.cancellations, previous.cancellations),
+                discount_change: calculateChange(current.avgDiscount, previous.avgDiscount)
+            })
+        })
+        
+        return comparison
+    }
+
+    // Функция для получения данных по регионам для графика
+    const getRegionsChartData = () => {
+        const currentRegionsGrouped = groupByRegions(currentWeekOrders.value)
+        
+        // Берем топ-5 регионов по количеству заказов
+        const topRegions = Object.values(currentRegionsGrouped)
+            .sort((a, b) => b.orders - a.orders)
+            .slice(0, 5)
+        
+        return {
+            labels: topRegions.map(region => {
+                // Сокращаем длинные названия регионов для лучшего отображения
+                const regionName = region.region
+                if (regionName.includes('область')) {
+                    return regionName.replace(' область', '')
+                }
+                if (regionName.includes('край')) {
+                    return regionName.replace(' край', '')
+                }
+                return regionName
+            }),
+            datasets: [
+                {
+                    label: 'Количество заказов',
+                    data: topRegions.map(region => region.orders),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)',
+                        'rgba(153, 102, 255, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgb(255, 99, 132)',
+                        'rgb(54, 162, 235)',
+                        'rgb(255, 206, 86)',
+                        'rgb(75, 192, 192)',
+                        'rgb(153, 102, 255)'
+                    ],
+                    borderWidth: 1
+                }
+            ]
+        }
+    }
+
     // Главная функция для получения всех данных сравнения
     const getComparisonData = async () => {
         // Загружаем обе недели
@@ -263,11 +411,19 @@ export const useDashboardStore = defineStore('dashboard', () => {
         const currentGrouped = groupByArticles(currentWeekOrders.value)
         const previousGrouped = groupByArticles(previousWeekOrders.value)
         
+        // Группируем данные по регионам
+        const currentRegionsGrouped = groupByRegions(currentWeekOrders.value)
+        const previousRegionsGrouped = groupByRegions(previousWeekOrders.value)
+        
         // Создаем данные для сравнения
         const comparisonData = createComparisonData(currentGrouped, previousGrouped)
+        const regionsComparisonData = createRegionsComparisonData(currentRegionsGrouped, previousRegionsGrouped)
         
         console.log('Данные для сравнения готовы:', comparisonData)
-        return comparisonData
+        return {
+            articles: comparisonData,
+            regions: regionsComparisonData
+        }
     }
     return {
         currentWeekOrders,
@@ -276,6 +432,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         fetchCurrentWeekData,
         fetchPreviousWeekData,
         getComparisonData,
-        getChartDataByDate 
+        getChartDataByDate,
+        getRegionsChartData 
     }
 })
