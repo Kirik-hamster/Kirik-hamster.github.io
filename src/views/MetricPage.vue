@@ -3,7 +3,7 @@ import SalesChart from '@/components/homePage/SalesChart.vue'
 import DiscountChart from '@/components/homePage/DiscountChart.vue'
 import CancelsChart from '@/components/homePage/CancelsChart.vue'
 import RegionsChart from '@/components/homePage/RegionsChart.vue'
-import { useDashboardStore } from '@/stores/dashboard'
+import { useDashboardStore } from '@/stores/dashboard/dashboard'
 
 export default {
   name: 'MetricPage',
@@ -22,7 +22,13 @@ export default {
       // Данные для пагинации
       currentPage: 1,
       itemsPerPage: 25,
-      totalPages: 1
+      totalPages: 1,
+      // Данные для сортировки
+      sortConfig: {
+        field: null,
+        direction: null // 'asc' или 'desc'
+      },
+      activeSortMenu: null // Для отслеживания открытого меню сортировки
     }
   },
   computed: {
@@ -49,18 +55,38 @@ export default {
     },
     tableHeaders() {
       const headers = {
-        'sales': ['Артикул', 'Текущая выручка', 'Предыдущая выручка', 'Изменение'],
-        'discount': ['Артикул', 'Текущая скидка', 'Предыдущая скидка', 'Изменение'],
-        'cancels': ['Артикул', 'Текущие отмены', 'Предыдущие отмены', 'Изменение'],
-        'regions': ['Регион', 'Текущие заказы', 'Предыдущие заказы', 'Изменение']
+        'sales': [
+          { key: 'nm_id', label: 'Артикул', sortable: false },
+          { key: 'current_revenue', label: 'Текущая выручка', sortable: true },
+          { key: 'previous_revenue', label: 'Предыдущая выручка', sortable: true },
+          { key: 'revenue_change', label: 'Изменение', sortable: true }
+        ],
+        'discount': [
+          { key: 'nm_id', label: 'Артикул', sortable: false },
+          { key: 'current_discount', label: 'Текущая скидка', sortable: true },
+          { key: 'previous_discount', label: 'Предыдущая скидка', sortable: true },
+          { key: 'discount_change', label: 'Изменение', sortable: true }
+        ],
+        'cancels': [
+          { key: 'nm_id', label: 'Артикул', sortable: false },
+          { key: 'current_cancellations', label: 'Текущие отмены', sortable: true },
+          { key: 'previous_cancellations', label: 'Предыдущие отмены', sortable: true },
+          { key: 'cancellations_change', label: 'Изменение', sortable: true }
+        ],
+        'regions': [
+          { key: 'region', label: 'Регион', sortable: false },
+          { key: 'current_orders', label: 'Текущие заказы', sortable: true },
+          { key: 'previous_orders', label: 'Предыдущие заказы', sortable: true },
+          { key: 'orders_change', label: 'Изменение', sortable: true }
+        ]
       }
       return headers[this.metricId] || []
     },
-    // Вычисляем данные для текущей страницы
+    // Вычисляем данные для текущей страницы с учетом сортировки
     paginatedItems() {
       const startIndex = (this.currentPage - 1) * this.itemsPerPage
       const endIndex = startIndex + this.itemsPerPage
-      return this.allItemsData.slice(startIndex, endIndex)
+      return this.sortedItems.slice(startIndex, endIndex)
     },
     // Общее количество записей
     totalItems() {
@@ -84,6 +110,51 @@ export default {
       }
       
       return pages
+    },
+    // Отсортированные данные
+    sortedItems() {
+      if (!this.sortConfig.field || !this.sortConfig.direction) {
+        return this.allItemsData
+      }
+      
+      return [...this.allItemsData].sort((a, b) => {
+        let aValue = a[this.sortConfig.field]
+        let bValue = b[this.sortConfig.field]
+        
+        // Для процентных изменений сортируем как числа
+        if (this.sortConfig.field.includes('_change')) {
+          aValue = parseFloat(aValue) || 0
+          bValue = parseFloat(bValue) || 0
+        }
+        
+        if (this.sortConfig.direction === 'asc') {
+          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+        } else {
+          return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
+        }
+      })
+    },
+    // Текст для отображения текущей сортировки
+    currentSortText() {
+      if (!this.sortConfig.field) return 'Без сортировки'
+      
+      const fieldNames = {
+        'current_revenue': 'текущая выручка',
+        'previous_revenue': 'предыдущая выручка', 
+        'revenue_change': 'изменение выручки',
+        'current_discount': 'текущая скидка',
+        'previous_discount': 'предыдущая скидка',
+        'discount_change': 'изменение скидки',
+        'current_cancellations': 'текущие отмены',
+        'previous_cancellations': 'предыдущие отмены',
+        'cancellations_change': 'изменение отмен',
+        'current_orders': 'текущие заказы',
+        'previous_orders': 'предыдущие заказы',
+        'orders_change': 'изменение заказов'
+      }
+      
+      const directionText = this.sortConfig.direction === 'asc' ? 'по возрастанию' : 'по убыванию'
+      return `${fieldNames[this.sortConfig.field]} ${directionText}`
     }
   },
   methods: {
@@ -145,6 +216,10 @@ export default {
         
         // Устанавливаем все данные для таблицы
         this.allItemsData = dataSource || []
+        
+        // Сбрасываем сортировку при загрузке новых данных
+        this.sortConfig = { field: null, direction: null }
+        this.activeSortMenu = null
         
         // Вычисляем общее количество страниц
         this.totalPages = Math.ceil(this.allItemsData.length / this.itemsPerPage)
@@ -234,11 +309,41 @@ export default {
       this.itemsPerPage = count
       this.totalPages = Math.ceil(this.allItemsData.length / this.itemsPerPage)
       this.currentPage = 1 // Сбрасываем на первую страницу
+    },
+    // Методы для сортировки
+    toggleSortMenu(field) {
+      if (this.activeSortMenu === field) {
+        this.activeSortMenu = null
+      } else {
+        this.activeSortMenu = field
+      }
+    },
+    applySort(field, direction) {
+      this.sortConfig = { field, direction }
+      this.activeSortMenu = null
+      this.currentPage = 1 // Сбрасываем на первую страницу при сортировке
+    },
+    clearSort() {
+      this.sortConfig = { field: null, direction: null }
+      this.activeSortMenu = null
+    },
+    // Закрытие меню при клике вне его
+    closeSortMenu(event) {
+      if (!event.target.closest('.sort-header')) {
+        this.activeSortMenu = null
+      }
     }
   },
   async mounted() {
     this.dashboardStore = useDashboardStore()
     await this.loadData()
+    
+    // Добавляем обработчик для закрытия меню при клике вне его
+    document.addEventListener('click', this.closeSortMenu)
+  },
+  beforeUnmount() {
+    // Убираем обработчик при уничтожении компонента
+    document.removeEventListener('click', this.closeSortMenu)
   },
   watch: {
     '$route.params.id': {
@@ -278,6 +383,11 @@ export default {
           <h3>Все {{ metricId === 'regions' ? 'регионы' : 'артикулы' }}</h3>
           <div class="table-info">
             <span class="total-items">Всего записей: {{ totalItems }}</span>
+            <div class="sort-info" v-if="sortConfig.field">
+              <span class="sort-label">Сортировка:</span>
+              <span class="sort-value">{{ currentSortText }}</span>
+              <button @click="clearSort" class="clear-sort-btn">×</button>
+            </div>
             <div class="items-per-page">
               <label for="itemsPerPage">Элементов на странице:</label>
               <select 
@@ -301,10 +411,52 @@ export default {
               <tr>
                 <th 
                   v-for="header in tableHeaders" 
-                  :key="header"
-                  :class="{ 'clickable': header === 'Артикул' && metricId !== 'regions' }"
+                  :key="header.key"
+                  :class="{ 
+                    'clickable': header.key === 'nm_id' && metricId !== 'regions',
+                    'sortable': header.sortable
+                  }"
+                  class="sort-header"
                 >
-                  {{ header }}
+                  <div class="header-content">
+                    {{ header.label }}
+                    <div class="sort-controls" v-if="header.sortable">
+                      <button 
+                        class="sort-btn"
+                        @click.stop="toggleSortMenu(header.key)"
+                        :class="{ active: activeSortMenu === header.key }"
+                      >
+                        <span class="sort-icon">↕</span>
+                      </button>
+                      <div 
+                        class="sort-menu" 
+                        v-if="activeSortMenu === header.key"
+                        @click.stop
+                      >
+                        <button 
+                          class="sort-option"
+                          @click="applySort(header.key, 'asc')"
+                          :class="{ active: sortConfig.field === header.key && sortConfig.direction === 'asc' }"
+                        >
+                          ↑ По возрастанию
+                        </button>
+                        <button 
+                          class="sort-option"
+                          @click="applySort(header.key, 'desc')"
+                          :class="{ active: sortConfig.field === header.key && sortConfig.direction === 'desc' }"
+                        >
+                          ↓ По убыванию
+                        </button>
+                        <button 
+                          class="sort-option clear" 
+                          v-if="sortConfig.field === header.key"
+                          @click="clearSort"
+                        >
+                          ✕ Отменить сортировку
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </th>
               </tr>
             </thead>

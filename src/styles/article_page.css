@@ -172,3 +172,18 @@
     font-size: 1rem;
   }
 }
+
+/* Дополнительные стили для индикаторов загрузки */
+.loading-message {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-style: italic;
+}

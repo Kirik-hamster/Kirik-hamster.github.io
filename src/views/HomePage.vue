@@ -3,12 +3,13 @@ import SalesChart from '@/components/homePage/SalesChart.vue'
 import DiscountChart from '@/components/homePage/DiscountChart.vue';
 import CancelsChart from '@/components/homePage/CancelsChart.vue';
 import RegionsChart from '@/components/homePage/RegionsChart.vue';
-import { useDashboardStore } from '@/stores/dashboard';
+import { useDashboardStore } from '@/stores/dashboard/dashboard';
+import FiltersPanel from '@/components/FiltersPanel.vue';
 
 export default {
   name: 'HomePage',  
   components: {
-    SalesChart, DiscountChart, CancelsChart, RegionsChart
+    SalesChart, DiscountChart, CancelsChart, RegionsChart, FiltersPanel
   },
   data() {
     return {
@@ -170,9 +171,21 @@ export default {
       }   
     } 
   },
-  mounted() {
-    // При загрузке страницы можно сразу загрузить данные
-    this.loadRealData(false)
+  async mounted() {
+    this.dashboardStore = useDashboardStore()
+    
+    // Следим за изменениями фильтров и перезагружаем данные
+    this.$watch(
+      () => this.dashboardStore.filters,
+      () => {
+        if (this.dataLoaded) {
+          this.loadRealData(false)
+        }
+      },
+      { deep: true }
+    )
+    
+    await this.loadRealData(false)
   }
 }
 </script>
@@ -215,6 +228,9 @@ export default {
           Идёт загрузка данных с API. Подождите пожалуйста...
         </div>
       </div>
+
+      <!-- Панель фильтров -->
+      <FiltersPanel />
       
       <div class="metrics-grid">
         <!-- Динамика продаж -->

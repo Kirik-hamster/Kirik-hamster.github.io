@@ -283,3 +283,156 @@
 .clickable-row:hover {
   background-color: #f8f9fa;
 }
+
+/* Стили для сортировки */
+.sort-header {
+  position: relative;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sort-controls {
+  position: relative;
+}
+
+.sort-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.sort-btn:hover {
+  background-color: #e9ecef;
+}
+
+.sort-btn.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.sort-icon {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.sort-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 180px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.sort-option {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.sort-option:hover {
+  background-color: #f8f9fa;
+}
+
+.sort-option.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.sort-option.clear {
+  color: #dc3545;
+  border-top: 1px solid #dee2e6;
+  font-weight: 500;
+}
+
+.sort-option.clear:hover {
+  background-color: #f8d7da;
+}
+
+.sort-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #e7f3ff;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.sort-label {
+  color: #495057;
+  font-weight: 500;
+}
+
+.sort-value {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.clear-sort-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.clear-sort-btn:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* Адаптивность для сортировки */
+@media (max-width: 768px) {
+  .sort-menu {
+    right: -50px;
+    min-width: 160px;
+  }
+  
+  .sort-info {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .sort-btn {
+    width: 20px;
+    height: 20px;
+  }
+}
