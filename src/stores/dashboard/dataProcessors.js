@@ -303,10 +303,10 @@ export const filterOrders = (orders, filters = {}) => {
         if (filters.dateTo && new Date(order.date) > new Date(filters.dateTo)) return false
         
         // Фильтр по категории
-        if (filters.category && order.subject_name !== filters.category) return false
+        if (filters.category && order.category !== filters.category) return false
         
         // Фильтр по бренду
-        if (filters.brand && order.brand_name !== filters.brand) return false
+        if (filters.brand && order.brand !== filters.brand) return false
         
         return true
     })
@@ -320,8 +320,8 @@ export const getFilterOptions = (orders) => {
     
     orders.forEach(order => {
         if (order.oblast) regions.add(order.oblast)
-        if (order.subject_name) categories.add(order.subject_name)
-        if (order.brand_name) brands.add(order.brand_name)
+        if (order.category) categories.add(order.category)
+        if (order.brand) brands.add(order.brand)
     })
     
     return {
