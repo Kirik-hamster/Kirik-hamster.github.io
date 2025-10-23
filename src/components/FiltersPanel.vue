@@ -65,26 +65,21 @@
         </select>
       </div>
 
-      <!-- Фильтр по дате от -->
+      <!-- Фильтр по периоду (заменяем даты) -->
       <div class="filter-group">
-        <label for="dateFrom">Дата с</label>
-        <input
-          id="dateFrom"
-          v-model="localFilters.dateFrom"
-          type="date"
-          @change="updateFilter('dateFrom', $event.target.value)"
-        />
-      </div>
-
-      <!-- Фильтр по дате до -->
-      <div class="filter-group">
-        <label for="dateTo">Дата по</label>
-        <input
-          id="dateTo"
-          v-model="localFilters.dateTo"
-          type="date"
-          @change="updateFilter('dateTo', $event.target.value)"
-        />
+        <label for="period">Период сравнения</label>
+        <select
+          id="period"
+          v-model="localFilters.period"
+          @change="updateFilter('period', $event.target.value)"
+        >
+          <option value="2">2 дня</option>
+          <option value="3">3 дня</option>
+          <option value="4">4 дня</option>
+          <option value="5">5 дней</option>
+          <option value="6">6 дней</option>
+          <option value="7" selected>7 дней</option>
+        </select>
       </div>
     </div>
 
@@ -93,6 +88,11 @@
       <span class="active-filters-count">
         Активных фильтров: {{ activeFiltersCount }}
       </span>
+      <div v-if="periodInfo" class="period-info">
+        Сравниваем: {{ periodInfo.currentStart }} - {{ periodInfo.currentEnd }} 
+        vs {{ periodInfo.previousStart }} - {{ periodInfo.previousEnd }}
+        ({{ periodInfo.daysCount }} дней)
+      </div>
     </div>
   </div>
 </template>
@@ -109,25 +109,41 @@ export default {
         region: '',
         category: '',
         brand: '',
-        dateFrom: '',
-        dateTo: ''
+        period: 7 // По умолчанию 7 дней
       },
       filterOptions: {
         regions: [],
         categories: [],
         brands: []
       },
-      dashboardStore: null
+      dashboardStore: null,
+      periodInfo: null
     }
   },
   computed: {
     activeFiltersCount() {
-      return Object.values(this.localFilters).filter(value => value !== '').length
+      const filters = { ...this.localFilters }
+      let count = 0
+      Object.keys(filters).forEach(key => {
+        // Не считаем период по умолчанию (7) как активный фильтр
+        if (key === 'period') {
+          if (filters[key] !== 7) {
+            count++
+          }
+        } else if (filters[key] !== '') {
+          count++
+        }
+      })
+      return count
     }
   },
   methods: {
     updateFilter(type, value) {
       if (this.dashboardStore) {
+        // Преобразуем period в число
+        if (type === 'period') {
+          value = parseInt(value)
+        }
         this.dashboardStore.setFilter(type, value)
       }
     },
@@ -137,8 +153,7 @@ export default {
         region: '',
         category: '',
         brand: '',
-        dateFrom: '',
-        dateTo: ''
+        period: 7
       }
       
       if (this.dashboardStore) {
@@ -154,18 +169,35 @@ export default {
       if (this.dashboardStore && this.dashboardStore.filters) {
         this.localFilters = { ...this.dashboardStore.filters }
       }
+    },
+    // Обновить информацию о периоде
+    async updatePeriodInfo() {
+      if (this.dashboardStore && this.dashboardStore.getComparisonData) {
+        try {
+          const comparisonData = await this.dashboardStore.getComparisonData()
+          if (comparisonData && comparisonData.periodInfo) {
+            this.periodInfo = comparisonData.periodInfo
+          }
+        } catch (error) {
+          console.error('Ошибка получения информации о периоде:', error)
+        }
+      }
     }
   },
-  mounted() {
+  async mounted() {
     this.dashboardStore = useDashboardStore()
     this.syncWithStore()
     this.loadFilterOptions()
+    
+    // Инициализируем информацию о периоде
+    await this.updatePeriodInfo()
     
     // Следим за изменениями фильтров в store
     this.$watch(
       () => this.dashboardStore.filters,
       (newFilters) => {
         this.localFilters = { ...newFilters }
+        this.updatePeriodInfo()
       },
       { deep: true }
     )
@@ -175,4 +207,14 @@ export default {
 
 <style scoped>
 @import '@/styles/filter_panel.css';
+
+.period-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #495057;
+  border-left: 4px solid #007bff;
+}
 </style>

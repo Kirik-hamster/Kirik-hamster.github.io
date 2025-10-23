@@ -3,8 +3,7 @@ import { defineStore } from 'pinia'
 
 // Импортируем модули
 import {
-    fetchCurrentWeekData as apiFetchCurrentWeekData,
-    fetchPreviousWeekData as apiFetchPreviousWeekData
+    fetchComparisonData
 } from '@/stores/dashboard/apiService'
 
 import {
@@ -26,14 +25,13 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const previousWeekOrders = ref([])
     const loading = ref(false)
 
-    // Фильтры
+    // Фильтры - добавляем period вместо dateFrom/dateTo
     const filters = ref({
         nm_id: '',
         region: '',
-        dateFrom: '',
-        dateTo: '',
         category: '',
-        brand: ''
+        brand: '',
+        period: 7 // По умолчанию 7 дней
     })
 
     // Кэш
@@ -41,42 +39,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     // Computed свойства для отфильтрованных данных
     const filteredCurrentWeekOrders = computed(() => {
-        return filterOrders(currentWeekOrders.value, filters.value)
+        const { period, ...otherFilters } = filters.value
+        return filterOrders(currentWeekOrders.value, otherFilters)
     })
 
     const filteredPreviousWeekOrders = computed(() => {
-        return filterOrders(previousWeekOrders.value, filters.value)
+        const { period, ...otherFilters } = filters.value
+        return filterOrders(previousWeekOrders.value, otherFilters)
     })
 
     // Действия
     const setLoading = (isLoading) => {
         loading.value = isLoading
-    }
-
-    // Загрузка данных текущей недели
-    const fetchCurrentWeekData = async () => {
-        setLoading(true)
-        try {
-            currentWeekOrders.value = await apiFetchCurrentWeekData()
-        } catch (error) {
-            console.error('Ошибка загрузки текущей недели:', error)
-            currentWeekOrders.value = []
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    // Загрузка данных прошлой недели
-    const fetchPreviousWeekData = async () => {
-        setLoading(true)
-        try {
-            previousWeekOrders.value = await apiFetchPreviousWeekData()
-        } catch (error) {
-            console.error('Ошибка загрузки прошлой недели:', error)
-            previousWeekOrders.value = []
-        } finally {
-            setLoading(false)
-        }
     }
 
     // Основная функция получения данных сравнения
@@ -89,35 +63,62 @@ export const useDashboardStore = defineStore('dashboard', () => {
         
         console.log('Загружаем свежие данные с API')
 
-        // Загружаем обе недели
-        await Promise.all([fetchCurrentWeekData(), fetchPreviousWeekData()])
-        
-        // Обрабатываем данные С УЧЕТОМ ФИЛЬТРОВ
-        const currentGrouped = groupByArticles(filteredCurrentWeekOrders.value)
-        const previousGrouped = groupByArticles(filteredPreviousWeekOrders.value)
-        const currentRegionsGrouped = groupByRegions(filteredCurrentWeekOrders.value)
-        const previousRegionsGrouped = groupByRegions(filteredPreviousWeekOrders.value)
-        
-        const comparisonData = {
-            articles: createComparisonData(currentGrouped, previousGrouped),
-            regions: createRegionsComparisonData(currentRegionsGrouped, previousRegionsGrouped)
+        setLoading(true)
+        try {
+            // Используем новую функцию с периодом из фильтров
+            const comparisonResult = await fetchComparisonData(filters.value.period)
+
+            const { currentPeriod, previousPeriod, periodInfo } = comparisonResult
+
+            // Сохраняем в state для обратной совместимости
+            currentWeekOrders.value = currentPeriod
+            previousWeekOrders.value = previousPeriod
+
+            // Применяем фильтры (кроме периода)
+            const { period, ...otherFilters } = filters.value
+            
+            const filteredCurrent = filterOrders(currentPeriod, otherFilters)
+            const filteredPrevious = filterOrders(previousPeriod, otherFilters)
+
+            console.log(`После фильтрации: ${filteredCurrent.length} текущих, ${filteredPrevious.length} предыдущих записей`)
+
+            // Обрабатываем данные С УЧЕТОМ ФИЛЬТРОВ
+            const currentGrouped = groupByArticles(filteredCurrent)
+            const previousGrouped = groupByArticles(filteredPrevious)
+            const currentRegionsGrouped = groupByRegions(filteredCurrent)
+            const previousRegionsGrouped = groupByRegions(filteredPrevious)
+            
+            const comparisonData = {
+                articles: createComparisonData(currentGrouped, previousGrouped),
+                regions: createRegionsComparisonData(currentRegionsGrouped, previousRegionsGrouped),
+                periodInfo // Добавляем информацию о периоде
+            }
+
+            const chartData = processChartData(filteredCurrent, filteredPrevious)
+            const regionsChartData = processRegionsChartData(filteredCurrent, filteredPrevious)
+            
+            // Сохраняем в кэш
+            updateCache({
+                comparisonData,
+                chartData,
+                regionsChartData,
+                rawData: {
+                    current: filteredCurrent,
+                    previous: filteredPrevious
+                }
+            })
+
+            console.log('Данные загружены и закэшированы')
+            return comparisonData
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error)
+            throw error
+        } finally {
+            setLoading(false)
         }
-
-        const chartData = processChartData(filteredCurrentWeekOrders.value, filteredPreviousWeekOrders.value)
-        const regionsChartData = processRegionsChartData(filteredCurrentWeekOrders.value, filteredPreviousWeekOrders.value)
-        
-        // Сохраняем в кэш
-        updateCache({
-            comparisonData,
-            chartData,
-            regionsChartData
-        })
-
-        console.log('Данные загружены и закэшированы')
-        return comparisonData
     }
 
-    // Вспомогательные геттеры
+    // Вспомогательные геттеры (оставляем для обратной совместимости с HomePage.vue)
     const getChartDataByDate = () => {
         return getCachedData('chartData') || processChartData(filteredCurrentWeekOrders.value, filteredPreviousWeekOrders.value)
     }
@@ -128,6 +129,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     // Методы для работы с фильтрами
     const setFilter = (filterType, value) => {
+        // Преобразуем period в число
+        if (filterType === 'period') {
+            value = parseInt(value)
+        }
         filters.value[filterType] = value
         // При изменении фильтров очищаем кэш, чтобы пересчитать данные
         clearCacheFn()
@@ -137,10 +142,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
         filters.value = {
             nm_id: '',
             region: '',
-            dateFrom: '',
-            dateTo: '',
             category: '',
-            brand: ''
+            brand: '',
+            period: 7
         }
         // При очистке фильтров очищаем кэш
         clearCacheFn()
@@ -150,6 +154,17 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const getFilterOptions = () => {
         const allOrders = [...currentWeekOrders.value, ...previousWeekOrders.value]
         return getFilterOptionsFromOrders(allOrders)
+    }
+
+    // Методы для обратной совместимости (если где-то используются)
+    const fetchCurrentWeekData = async () => {
+        // Для обратной совместимости - просто вызываем getComparisonData
+        await getComparisonData(true)
+    }
+
+    const fetchPreviousWeekData = async () => {
+        // Для обратной совместимости - уже загружается в getComparisonData
+        console.log('fetchPreviousWeekData deprecated - use getComparisonData instead')
     }
 
     return {

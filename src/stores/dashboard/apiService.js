@@ -7,7 +7,7 @@ export const formatDate = (date) => {
     return date.toISOString().split('T')[0]
 }
 
-// Функция для загрузки данных за ОДИН день
+// Функция для загрузки данных за период
 export const fetchDayData = async (dateFrom, dateTo, page = 1, limit = 500) => {
     try {
         const response = await axios.get('/api/api', {
@@ -50,12 +50,55 @@ export const fetchWeekData = async (startOffset, daysCount) => {
     return orders
 }
 
-// Получить все данные текущей недели
-export const fetchCurrentWeekData = async () => {
-    return await fetchWeekData(0, 7)
+// Получить данные за выбранный период и предыдущий период той же длины
+export const fetchComparisonData = async (days = 7) => {
+    try {
+        // Вычисляем даты для текущего периода
+        const endDate = new Date()
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - (days - 1))
+        
+        // Вычисляем даты для предыдущего периода
+        const prevEndDate = new Date(startDate)
+        prevEndDate.setDate(prevEndDate.getDate() - 1)
+        const prevStartDate = new Date(prevEndDate)
+        prevStartDate.setDate(prevStartDate.getDate() - (days - 1))
+        
+        // Форматируем даты
+        const currentStartStr = formatDate(startDate)
+        const currentEndStr = formatDate(endDate)
+        const prevStartStr = formatDate(prevStartDate)
+        const prevEndStr = formatDate(prevEndDate)
+        
+        console.log(`Сравнение периодов (${days} дней):`)
+        console.log(`- Текущий: ${currentStartStr} - ${currentEndStr}`)
+        console.log(`- Предыдущий: ${prevStartStr} - ${prevEndStr}`)
+
+        // Загружаем данные за оба периода
+        const [currentPeriodData, previousPeriodData] = await Promise.all([
+            fetchDayData(currentStartStr, currentEndStr),
+            fetchDayData(prevStartStr, prevEndStr)
+        ])
+        
+        return {
+            currentPeriod: currentPeriodData,
+            previousPeriod: previousPeriodData,
+            periodInfo: {
+                currentStart: currentStartStr,
+                currentEnd: currentEndStr,
+                previousStart: prevStartStr,
+                previousEnd: prevEndStr,
+                daysCount: days
+            }
+        }
+      
+    } catch (error) {
+        console.error('Ошибка загрузки данных сравнения:', error)
+        throw error
+    }
 }
 
-// Получить все данные прошлой недели
-export const fetchPreviousWeekData = async () => {
-    return await fetchWeekData(8, 7)
+// Получить данные за последние N дней (для обратной совместимости)
+export const fetchLastNDaysData = async (days = 7) => {
+    return await fetchComparisonData(days)
 }

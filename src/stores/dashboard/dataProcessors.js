@@ -184,13 +184,11 @@ export const getChartDataByDate = (currentWeekOrders, previousWeekOrders) => {
         ordersByDate[dateKey].push(order)
     })
     
-    // Получаем массив дат за последние 14 дней
-    const last14Days = []
-    for (let i = 13; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        last14Days.push(date.toISOString().split('T')[0])
-    }
+    // Получаем все уникальные даты и сортируем их
+    const allDates = Object.keys(ordersByDate).sort()
+    
+    // Если дат меньше 2, используем все доступные даты
+    const periodDates = allDates.length > 0 ? allDates : []
     
     // Агрегируем данные для каждой даты
     const revenueByDay = []
@@ -198,7 +196,7 @@ export const getChartDataByDate = (currentWeekOrders, previousWeekOrders) => {
     const cancellationsByDay = []
     const discountByDay = []
     
-    last14Days.forEach(date => {
+    periodDates.forEach(date => {
         const dayOrders = ordersByDate[date] || []
         
         const dayRevenue = dayOrders
@@ -220,17 +218,17 @@ export const getChartDataByDate = (currentWeekOrders, previousWeekOrders) => {
     })
     
     // Форматируем даты для labels
-    const formattedLabels = last14Days.map(dateStr => {
+    const formattedLabels = periodDates.map(dateStr => {
         const date = new Date(dateStr)
         return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
     })
         
     return {
         labels: formattedLabels,
-        revenue: revenueByDay.reverse(),
-        sales: salesByDay.reverse(),
-        cancellations: cancellationsByDay.reverse(),
-        discount: discountByDay.reverse()
+        revenue: revenueByDay,
+        sales: salesByDay,
+        cancellations: cancellationsByDay,
+        discount: discountByDay
     }
 }
 
