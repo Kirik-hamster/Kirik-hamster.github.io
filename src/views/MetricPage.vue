@@ -1,367 +1,71 @@
 <script>
-import SalesChart from '@/components/homePage/SalesChart.vue'
-import DiscountChart from '@/components/homePage/DiscountChart.vue'
-import CancelsChart from '@/components/homePage/CancelsChart.vue'
-import RegionsChart from '@/components/homePage/RegionsChart.vue'
-import FiltersPanel from '@/components/FiltersPanel.vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard/dashboard'
+import { useMetricData } from '@/composables/useMetricData'
+
+// Components
+import FiltersPanel from '@/components/FiltersPanel.vue'
+import MetricHeader from '@/components/metric/MetricHeader.vue'
+import MetricChart from '@/components/metric/MetricChart.vue'
+import MetricTable from '@/components/metric/MetricTable.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 export default {
   name: 'MetricPage',
   components: {
-    SalesChart,
-    DiscountChart,
-    CancelsChart,
-    RegionsChart,
-    FiltersPanel
+    FiltersPanel,
+    MetricHeader,
+    MetricChart,
+    MetricTable,
+    LoadingSpinner
   },
-  data() {
-    return {
-      loading: false,
-      chartData: null,
-      allItemsData: [],
-      dashboardStore: null,
-      // Данные для пагинации
-      currentPage: 1,
-      itemsPerPage: 25,
-      totalPages: 1,
-      // Данные для сортировки
-      sortConfig: {
-        field: null,
-        direction: null // 'asc' или 'desc'
-      },
-      activeSortMenu: null // Для отслеживания открытого меню сортировки
-    }
-  },
-  computed: {
-    metricId() {
-      return this.$route.params.id
-    },
-    metricTitle() {
-      const titles = {
-        'sales': 'Динамика продаж',
-        'discount': 'Средний процент скидки',
-        'cancels': 'Уровень отмен',
-        'regions': 'Распределение по регионам'
-      }
-      return titles[this.metricId] || 'Показатель'
-    },
-    currentChartComponent() {
-      const components = {
-        'sales': SalesChart,
-        'discount': DiscountChart,
-        'cancels': CancelsChart,
-        'regions': RegionsChart
-      }
-      return components[this.metricId] || SalesChart
-    },
-    tableHeaders() {
-      const headers = {
-        'sales': [
-          { key: 'nm_id', label: 'Артикул', sortable: false },
-          { key: 'current_revenue', label: 'Текущая выручка', sortable: true },
-          { key: 'previous_revenue', label: 'Предыдущая выручка', sortable: true },
-          { key: 'revenue_change', label: 'Изменение', sortable: true }
-        ],
-        'discount': [
-          { key: 'nm_id', label: 'Артикул', sortable: false },
-          { key: 'current_discount', label: 'Текущая скидка', sortable: true },
-          { key: 'previous_discount', label: 'Предыдущая скидка', sortable: true },
-          { key: 'discount_change', label: 'Изменение', sortable: true }
-        ],
-        'cancels': [
-          { key: 'nm_id', label: 'Артикул', sortable: false },
-          { key: 'current_cancellations', label: 'Текущие отмены', sortable: true },
-          { key: 'previous_cancellations', label: 'Предыдущие отмены', sortable: true },
-          { key: 'cancellations_change', label: 'Изменение', sortable: true }
-        ],
-        'regions': [
-          { key: 'region', label: 'Регион', sortable: false },
-          { key: 'current_orders', label: 'Текущие заказы', sortable: true },
-          { key: 'previous_orders', label: 'Предыдущие заказы', sortable: true },
-          { key: 'orders_change', label: 'Изменение', sortable: true }
-        ]
-      }
-      return headers[this.metricId] || []
-    },
-    // Вычисляем данные для текущей страницы с учетом сортировки
-    paginatedItems() {
-      const startIndex = (this.currentPage - 1) * this.itemsPerPage
-      const endIndex = startIndex + this.itemsPerPage
-      return this.sortedItems.slice(startIndex, endIndex)
-    },
-    // Общее количество записей
-    totalItems() {
-      return this.allItemsData.length
-    },
-    // Номера страниц для отображения
-    displayedPages() {
-      const pages = []
-      const maxVisiblePages = 5
-      
-      let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2))
-      let endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1)
-      
-      // Корректируем startPage, если endPage достиг максимума
-      if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1)
-      }
-      
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i)
-      }
-      
-      return pages
-    },
-    // Отсортированные данные
-    sortedItems() {
-      if (!this.sortConfig.field || !this.sortConfig.direction) {
-        return this.allItemsData
-      }
-      
-      return [...this.allItemsData].sort((a, b) => {
-        let aValue = a[this.sortConfig.field]
-        let bValue = b[this.sortConfig.field]
-        
-        // Для процентных изменений сортируем как числа
-        if (this.sortConfig.field.includes('_change')) {
-          aValue = parseFloat(aValue) || 0
-          bValue = parseFloat(bValue) || 0
-        }
-        
-        if (this.sortConfig.direction === 'asc') {
-          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-        } else {
-          return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
-        }
-      })
-    },
-    // Текст для отображения текущей сортировки
-    currentSortText() {
-      if (!this.sortConfig.field) return 'Без сортировки'
-      
-      const fieldNames = {
-        'current_revenue': 'текущая выручка',
-        'previous_revenue': 'предыдущая выручка', 
-        'revenue_change': 'изменение выручки',
-        'current_discount': 'текущая скидка',
-        'previous_discount': 'предыдущая скидка',
-        'discount_change': 'изменение скидки',
-        'current_cancellations': 'текущие отмены',
-        'previous_cancellations': 'предыдущие отмены',
-        'cancellations_change': 'изменение отмен',
-        'current_orders': 'текущие заказы',
-        'previous_orders': 'предыдущие заказы',
-        'orders_change': 'изменение заказов'
-      }
-      
-      const directionText = this.sortConfig.direction === 'asc' ? 'по возрастанию' : 'по убыванию'
-      return `${fieldNames[this.sortConfig.field]} ${directionText}`
-    }
-  },
-  methods: {
-    getChangeClass(change) {
-      if (change > 0) return 'positive-change'
-      if (change < 0) return 'negative-change'
-      return 'neutral-change'
-    },
-    formatValue(item, type) {
-      if (this.metricId === 'sales') {
-        return new Intl.NumberFormat('ru-RU', {
-          style: 'currency',
-          currency: 'RUB',
-          minimumFractionDigits: 0
-        }).format(item)
-      } else if (this.metricId === 'discount') {
-        return Math.round(item * 10) / 10 + '%'
-      } else {
-        return item
-      }
-    },
-    getCurrentValue(item) {
-      const values = {
-        'sales': item.current_revenue,
-        'discount': item.current_discount,
-        'cancels': item.current_cancellations,
-        'regions': item.current_orders
-      }
-      return values[this.metricId] || 0
-    },
-    getPreviousValue(item) {
-      const values = {
-        'sales': item.previous_revenue,
-        'discount': item.previous_discount,
-        'cancels': item.previous_cancellations,
-        'regions': item.previous_orders
-      }
-      return values[this.metricId] || 0
-    },
-    getChangeValue(item) {
-      const changes = {
-        'sales': item.revenue_change,
-        'discount': item.discount_change,
-        'cancels': item.cancellations_change,
-        'regions': item.orders_change
-      }
-      return changes[this.metricId] || 0
-    },
-    async loadData() {
-      this.loading = true
-      try {
-        // Получаем данные из store
-        const comparisonData = await this.dashboardStore.getComparisonData()
-        
-        // Определяем какие данные использовать
-        const dataSource = this.metricId === 'regions' 
-          ? comparisonData.regions 
-          : comparisonData.articles
-        
-        // Устанавливаем все данные для таблицы
-        this.allItemsData = dataSource || []
-        
-        // Сбрасываем сортировку при загрузке новых данных
-        this.sortConfig = { field: null, direction: null }
-        this.activeSortMenu = null
-        
-        // Вычисляем общее количество страниц
-        this.totalPages = Math.ceil(this.allItemsData.length / this.itemsPerPage)
-        
-        // Сбрасываем на первую страницу при загрузке новых данных
-        this.currentPage = 1
-        
-        // Подготавливаем данные для графика
-        this.prepareChartData()
-        
-      } catch (error) {
-        console.error('Ошибка загрузки данных:', error)
-      } finally {
-        this.loading = false
-      }
-    },
-    prepareChartData() {
-      const chartDataFromStore = this.metricId === 'regions' 
-        ? this.dashboardStore.getRegionsChartData()
-        : this.dashboardStore.getChartDataByDate()
-
-      if (this.metricId === 'regions') {
-        this.chartData = chartDataFromStore
-        return
-      }
-
-      // Для остальных метрик формируем данные из агрегированных по датам
-      let dataset = []
-      let label = ''
-      let color = ''
-
-      switch (this.metricId) {
-        case 'sales':
-          dataset = chartDataFromStore.revenue
-          label = 'Выручка, руб.'
-          color = '#f87979'
-          break
-        case 'discount':
-          dataset = chartDataFromStore.discount
-          label = 'Средняя скидка, %'
-          color = 'rgb(255, 99, 132)'
-          break
-        case 'cancels':
-          dataset = chartDataFromStore.cancellations
-          label = 'Количество отмен'
-          color = 'rgb(255, 159, 64)'
-          break
-      }
-
-      this.chartData = {
-        labels: chartDataFromStore.labels,
-        datasets: [{
-          label: label,
-          data: dataset,
-          backgroundColor: color,
-          borderColor: color,
-          tension: 0.1
-        }]
-      }
-    },
-    getItemId(item) {
-      return this.metricId === 'regions' ? item.region : item.nm_id
-    },
-    navigateToArticle(item) {
-      if (this.metricId !== 'regions') {
-        this.$router.push(`/article/${item.nm_id}`)
-      }
-    },
-    // Методы для пагинации
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--
-      }
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++
-      }
-    },
-    // Метод для изменения количества элементов на странице
-    changeItemsPerPage(count) {
-      this.itemsPerPage = count
-      this.totalPages = Math.ceil(this.allItemsData.length / this.itemsPerPage)
-      this.currentPage = 1 // Сбрасываем на первую страницу
-    },
-    // Методы для сортировки
-    toggleSortMenu(field) {
-      if (this.activeSortMenu === field) {
-        this.activeSortMenu = null
-      } else {
-        this.activeSortMenu = field
-      }
-    },
-    applySort(field, direction) {
-      this.sortConfig = { field, direction }
-      this.activeSortMenu = null
-      this.currentPage = 1 // Сбрасываем на первую страницу при сортировке
-    },
-    clearSort() {
-      this.sortConfig = { field: null, direction: null }
-      this.activeSortMenu = null
-    },
-    // Закрытие меню при клике вне его
-    closeSortMenu(event) {
-      if (!event.target.closest('.sort-header')) {
-        this.activeSortMenu = null
-      }
-    }
-  },
-  async mounted() {
-    this.dashboardStore = useDashboardStore()
-    await this.loadData()
+  setup() {
+    const route = useRoute()
+    const router = useRouter()
+    const dashboardStore = useDashboardStore()
     
-    // Добавляем обработчик для закрытия меню при клике вне его
-    document.addEventListener('click', this.closeSortMenu)
+    const metricId = ref(route.params.id)
+    const { loading, chartData, allItemsData, config, loadData, getItemId } = useMetricData(metricId.value)
 
-    // Следим за изменениями фильтров и перезагружаем данные
-    this.$watch(
-      () => this.dashboardStore.filters,
+    // Обработчик клика по строке таблицы
+    const handleRowClick = (item) => {
+      if (metricId.value !== 'regions') {
+        router.push(`/article/${item.nm_id}`)
+      }
+    }
+
+    // Загрузка данных при монтировании
+    onMounted(async () => {
+      await loadData()
+    })
+
+    // Следим за изменениями фильтров
+    watch(
+      () => dashboardStore.filters,
       () => {
-        this.loadData()
+        loadData()
       },
       { deep: true }
     )
-  },
-  beforeUnmount() {
-    // Убираем обработчик при уничтожении компонента
-    document.removeEventListener('click', this.closeSortMenu)
-  },
-  watch: {
-    '$route.params.id': {
-      handler() {
-        this.loadData()
-      },
-      immediate: false
+
+    // Следим за изменением метрики в URL
+    watch(
+      () => route.params.id,
+      (newMetricId) => {
+        metricId.value = newMetricId
+        loadData()
+      }
+    )
+
+    return {
+      metricId,
+      loading,
+      chartData,
+      allItemsData,
+      config,
+      getItemId,
+      handleRowClick
     }
   }
 }
@@ -369,181 +73,37 @@ export default {
 
 <template>
   <div class="metric-page">
-    <div class="page-header">
-      <h1>{{ metricTitle }}</h1>
-      <p>Детальная информация по показателю</p>
-      <button @click="$router.back()" class="back-btn">← Назад</button>
-    </div>
+    <LoadingSpinner 
+      :loading="loading" 
+      :title="`Загрузка данных: ${config.title}`"
+      :message="'Подготавливаем графики и таблицы...'"
+    />
+
+    <MetricHeader :title="config.title" />
     
     <!-- Панель фильтров -->
     <FiltersPanel />
     
     <div class="metric-content">
       <!-- График -->
-      <div class="chart-section">
-        <component 
-          :is="currentChartComponent" 
-          :chartData="chartData" 
-          v-if="chartData"
-        />
-        <div v-else class="no-chart-data">
-          Нет данных для отображения графика
-        </div>
-      </div>
+      <MetricChart 
+        :chartData="chartData" 
+        :chartComponent="config.chartComponent" 
+      />
       
       <!-- Таблица со всеми данными -->
-      <div class="table-section">
-        <div class="table-header">
-          <h3>Все {{ metricId === 'regions' ? 'регионы' : 'артикулы' }}</h3>
-          <div class="table-info">
-            <span class="total-items">Всего записей: {{ totalItems }}</span>
-            <div class="sort-info" v-if="sortConfig.field">
-              <span class="sort-label">Сортировка:</span>
-              <span class="sort-value">{{ currentSortText }}</span>
-              <button @click="clearSort" class="clear-sort-btn">×</button>
-            </div>
-            <div class="items-per-page">
-              <label for="itemsPerPage">Элементов на странице:</label>
-              <select 
-                id="itemsPerPage" 
-                v-model="itemsPerPage" 
-                @change="changeItemsPerPage(parseInt($event.target.value))"
-                class="page-select"
-              >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        
-        <div class="table-container">
-          <table class="articles-table">
-            <thead>
-              <tr>
-                <th 
-                  v-for="header in tableHeaders" 
-                  :key="header.key"
-                  :class="{ 
-                    'clickable': header.key === 'nm_id' && metricId !== 'regions',
-                    'sortable': header.sortable
-                  }"
-                  class="sort-header"
-                >
-                  <div class="header-content">
-                    {{ header.label }}
-                    <div class="sort-controls" v-if="header.sortable">
-                      <button 
-                        class="sort-btn"
-                        @click.stop="toggleSortMenu(header.key)"
-                        :class="{ active: activeSortMenu === header.key }"
-                      >
-                        <span class="sort-icon">↕</span>
-                      </button>
-                      <div 
-                        class="sort-menu" 
-                        v-if="activeSortMenu === header.key"
-                        @click.stop
-                      >
-                        <button 
-                          class="sort-option"
-                          @click="applySort(header.key, 'asc')"
-                          :class="{ active: sortConfig.field === header.key && sortConfig.direction === 'asc' }"
-                        >
-                          ↑ По возрастанию
-                        </button>
-                        <button 
-                          class="sort-option"
-                          @click="applySort(header.key, 'desc')"
-                          :class="{ active: sortConfig.field === header.key && sortConfig.direction === 'desc' }"
-                        >
-                          ↓ По убыванию
-                        </button>
-                        <button 
-                          class="sort-option clear" 
-                          v-if="sortConfig.field === header.key"
-                          @click="clearSort"
-                        >
-                          ✕ Отменить сортировку
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr 
-                v-for="item in paginatedItems" 
-                :key="getItemId(item)"
-                :class="{ 'clickable-row': metricId !== 'regions' }"
-                @click="navigateToArticle(item)"
-              >
-                <td>{{ getItemId(item) }}</td>
-                <td>{{ formatValue(getCurrentValue(item)) }}</td>
-                <td>{{ formatValue(getPreviousValue(item)) }}</td>
-                <td :class="getChangeClass(getChangeValue(item))">
-                  {{ Math.round(getChangeValue(item) * 10) / 10 }}% 
-                  <span v-if="getChangeValue(item) > 0">↑</span>
-                  <span v-else-if="getChangeValue(item) < 0">↓</span>
-                </td>
-              </tr>
-              <tr v-if="paginatedItems.length === 0">
-                <td :colspan="tableHeaders.length" class="no-data">
-                  Нет данных для отображения
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Пагинация -->
-        <div class="pagination" v-if="totalPages > 1">
-          <div class="pagination-info">
-            Показано {{ ((currentPage - 1) * itemsPerPage) + 1 }}-{{ Math.min(currentPage * itemsPerPage, totalItems) }} из {{ totalItems }}
-          </div>
-          
-          <div class="pagination-controls">
-            <button 
-              @click="prevPage" 
-              :disabled="currentPage === 1" 
-              class="pagination-btn"
-            >
-              ← Назад
-            </button>
-            
-            <div class="page-numbers">
-              <button 
-                v-for="page in displayedPages" 
-                :key="page"
-                @click="goToPage(page)"
-                :class="{ 'active': page === currentPage }"
-                class="page-btn"
-              >
-                {{ page }}
-              </button>
-              
-              <span v-if="displayedPages[displayedPages.length - 1] < totalPages" class="page-ellipsis">
-                ...
-              </span>
-            </div>
-            
-            <button 
-              @click="nextPage" 
-              :disabled="currentPage === totalPages" 
-              class="pagination-btn"
-            >
-              Вперед →
-            </button>
-          </div>
-        </div>
-      </div>
+      <MetricTable
+        :items="allItemsData"
+        :tableHeaders="config.tableHeaders"
+        :valueFields="config.valueFields"
+        :isRegions="metricId === 'regions'"
+        :getItemId="getItemId"
+        @rowClick="handleRowClick"
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
-@import '@/styles/metric_page.css';
+@import '@/styles/metric/metric_page.css';
 </style>

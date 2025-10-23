@@ -1,0 +1,15 @@
+.metric-page {
+  padding: 20px;
+}
+
+.metric-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+@media (max-width: 768px) {
+  .metric-page {
+    padding: 15px;
+  }
+}

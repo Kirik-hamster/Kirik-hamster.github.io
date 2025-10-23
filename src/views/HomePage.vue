@@ -5,11 +5,12 @@ import CancelsChart from '@/components/homePage/CancelsChart.vue';
 import RegionsChart from '@/components/homePage/RegionsChart.vue';
 import { useDashboardStore } from '@/stores/dashboard/dashboard';
 import FiltersPanel from '@/components/FiltersPanel.vue';
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 
 export default {
   name: 'HomePage',  
   components: {
-    SalesChart, DiscountChart, CancelsChart, RegionsChart, FiltersPanel
+    SalesChart, DiscountChart, CancelsChart, RegionsChart, FiltersPanel, LoadingSpinner
   },
   data() {
     return {
@@ -193,20 +194,11 @@ export default {
 <template>
   <div class="home-page">
     <!-- Красивая анимация загрузки -->
-    <div v-if="loading" class="loading-overlay">
-      <div class="loading-container">
-        <div class="loading-spinner">
-          <div class="spinner-circle"></div>
-          <div class="spinner-circle"></div>
-          <div class="spinner-circle"></div>
-          <div class="spinner-circle"></div>
-        </div>
-        <div class="loading-text">
-          <h3>Загрузка аналитики Wildberries</h3>
-          <p>Собираем данные о продажах, скидках и отменах...</p>
-        </div>
-      </div>
-    </div>
+    <LoadingSpinner 
+      :loading="loading" 
+      :title="'Загрузка аналитики Wildberries'"
+      :message="'Собираем данные о продажах, скидках и отменах...'"
+    />
 
     <div v-if="dataLoaded" class="page-content">
       <div class="page-header">
