@@ -3,6 +3,7 @@ import SalesChart from '@/components/homePage/SalesChart.vue'
 import DiscountChart from '@/components/homePage/DiscountChart.vue'
 import CancelsChart from '@/components/homePage/CancelsChart.vue'
 import RegionsChart from '@/components/homePage/RegionsChart.vue'
+import FiltersPanel from '@/components/FiltersPanel.vue'
 import { useDashboardStore } from '@/stores/dashboard/dashboard'
 
 export default {
@@ -11,7 +12,8 @@ export default {
     SalesChart,
     DiscountChart,
     CancelsChart,
-    RegionsChart
+    RegionsChart,
+    FiltersPanel
   },
   data() {
     return {
@@ -340,6 +342,15 @@ export default {
     
     // Добавляем обработчик для закрытия меню при клике вне его
     document.addEventListener('click', this.closeSortMenu)
+
+    // Следим за изменениями фильтров и перезагружаем данные
+    this.$watch(
+      () => this.dashboardStore.filters,
+      () => {
+        this.loadData()
+      },
+      { deep: true }
+    )
   },
   beforeUnmount() {
     // Убираем обработчик при уничтожении компонента
@@ -363,6 +374,9 @@ export default {
       <p>Детальная информация по показателю</p>
       <button @click="$router.back()" class="back-btn">← Назад</button>
     </div>
+    
+    <!-- Панель фильтров -->
+    <FiltersPanel />
     
     <div class="metric-content">
       <!-- График -->

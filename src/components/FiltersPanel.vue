@@ -170,13 +170,55 @@ export default {
         this.localFilters = { ...this.dashboardStore.filters }
       }
     },
+    // Функция для корректировки даты (сдвиг на один день назад)
+    adjustDateBackward(dateString) {
+      const date = new Date(dateString)
+      date.setDate(date.getDate() - 1)
+      return date.toISOString().split('T')[0]
+    },
+    // Функция для форматирования даты в читаемый вид
+    formatDateForDisplay(dateString) {
+      const date = new Date(dateString)
+      return date.toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+    },
+    // Функция для получения скорректированной информации о периоде
+    getAdjustedPeriodInfo(dateFrom, dateTo, previousDateFrom, previousDateTo) {
+      const currentStart = this.adjustDateBackward(dateFrom)
+      const currentEnd = this.adjustDateBackward(dateTo)
+      const previousStart = this.adjustDateBackward(previousDateFrom)
+      const previousEnd = this.adjustDateBackward(previousDateTo)
+      
+      // Вычисляем количество дней в периоде
+      const start = new Date(dateFrom)
+      const end = new Date(dateTo)
+      const daysCount = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+      
+      return {
+        currentStart: this.formatDateForDisplay(currentStart),
+        currentEnd: this.formatDateForDisplay(currentEnd),
+        previousStart: this.formatDateForDisplay(previousStart),
+        previousEnd: this.formatDateForDisplay(previousEnd),
+        daysCount: daysCount
+      }
+    },
     // Обновить информацию о периоде
     async updatePeriodInfo() {
       if (this.dashboardStore && this.dashboardStore.getComparisonData) {
         try {
           const comparisonData = await this.dashboardStore.getComparisonData()
           if (comparisonData && comparisonData.periodInfo) {
-            this.periodInfo = comparisonData.periodInfo
+            // Используем новую функцию для корректировки дат
+            const rawPeriodInfo = comparisonData.periodInfo
+            this.periodInfo = this.getAdjustedPeriodInfo(
+              rawPeriodInfo.currentStart,
+              rawPeriodInfo.currentEnd,
+              rawPeriodInfo.previousStart,
+              rawPeriodInfo.previousEnd
+            )
           }
         } catch (error) {
           console.error('Ошибка получения информации о периоде:', error)
@@ -207,14 +249,4 @@ export default {
 
 <style scoped>
 @import '@/styles/filter_panel.css';
-
-.period-info {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: #f8f9fa;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: #495057;
-  border-left: 4px solid #007bff;
-}
 </style>

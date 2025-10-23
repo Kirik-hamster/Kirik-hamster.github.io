@@ -169,6 +169,44 @@ export const createRegionsComparisonData = (currentWeekGrouped, previousWeekGrou
     return comparison
 }
 
+// Функция для корректировки даты (сдвиг на один день назад)
+const adjustDateBackward = (dateString) => {
+    const date = new Date(dateString)
+    date.setDate(date.getDate() - 1)
+    return date.toISOString().split('T')[0]
+}
+
+// Функция для получения скорректированной информации о периоде
+export const getAdjustedPeriodInfo = (dateFrom, dateTo, previousDateFrom, previousDateTo) => {
+    const currentStart = adjustDateBackward(dateFrom)
+    const currentEnd = adjustDateBackward(dateTo)
+    const previousStart = adjustDateBackward(previousDateFrom)
+    const previousEnd = adjustDateBackward(previousDateTo)
+    
+    // Вычисляем количество дней в периоде
+    const start = new Date(dateFrom)
+    const end = new Date(dateTo)
+    const daysCount = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+    
+    return {
+        currentStart: formatDateForDisplay(currentStart),
+        currentEnd: formatDateForDisplay(currentEnd),
+        previousStart: formatDateForDisplay(previousStart),
+        previousEnd: formatDateForDisplay(previousEnd),
+        daysCount: daysCount
+    }
+}
+
+// Функция для форматирования даты в читаемый вид
+const formatDateForDisplay = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    })
+}
+
 // Агрегация данных по датам для графиков
 export const getChartDataByDate = (currentWeekOrders, previousWeekOrders) => {
     const allOrders = [...currentWeekOrders, ...previousWeekOrders]
