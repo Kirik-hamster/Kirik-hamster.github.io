@@ -318,3 +318,81 @@
   margin-top: 5px;
   font-style: italic;
 }
+
+/* Стили для прокрутки таблиц */
+.table-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* Плавная прокрутка на iOS */
+  border-radius: 0 0 8px 8px; /* Сохраняем скругление углов */
+}
+
+/* Гарантируем, что таблица будет достаточно широкой */
+.articles-table {
+  width: 100%;
+  min-width: 500px; /* Минимальная ширина, при которой таблица выглядит хорошо */
+  border-collapse: collapse;
+}
+
+/* Стили для полосы прокрутки */
+.table-scroll-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Адаптивные стили для мобильных устройств */
+@media (max-width: 768px) {
+  .table-scroll-wrapper {
+    margin: 0 -15px;
+    padding: 0 15px;
+  }
+  
+  .articles-table {
+    min-width: 450px; /* Немного меньше минимальная ширина на мобильных */
+  }
+}
+
+@media (max-width: 480px) {
+  .articles-table {
+    min-width: 400px; /* Еще меньше для очень маленьких экранов */
+    font-size: 0.85rem;
+  }
+  
+  .articles-table th,
+  .articles-table td {
+    padding: 8px 6px;
+  }
+}
+
+/* Существующие стили таблиц оставляем без изменений */
+.articles-table th {
+  background-color: #f8f9fa;
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.articles-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #dee2e6;
+  cursor: pointer;
+}
+
+.articles-table tr:hover td {
+  background-color: #f8f9fa;
+}

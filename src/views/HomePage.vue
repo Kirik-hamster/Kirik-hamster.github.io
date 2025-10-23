@@ -233,36 +233,38 @@ export default {
           </div>
           <div class="table-container">
             <h4>Топ артикулов по выручке</h4>
-            <table class="articles-table">
-              <thead>
-                <tr>
-                  <th>Артикул</th>
-                  <th>Текущая выручка</th>
-                  <th>Предыдущая выручка</th>
-                  <th>Изменение</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr 
-                  v-for="item in salesData" 
-                  :key="item.nm_id" 
-                  @click="$router.push(`/article/${item.nm_id}`)"
-                  class="data-row"
-                >
-                  <td>{{ item.nm_id }}</td>
-                  <td>{{ formatCurrency(item.current_revenue) }}</td>
-                  <td>{{ formatCurrency(item.previous_revenue) }}</td>
-                  <td :class="getChangeClass(item.revenue_change)">
-                    {{ item.revenue_change }}% 
-                    <span v-if="item.revenue_change > 0">↑</span>
-                    <span v-else-if="item.revenue_change < 0">↓</span>
-                  </td>
-                </tr>
-                <tr v-if="salesData.length === 0">
-                  <td colspan="4" class="no-data">Нажмите кнопку для загрузки данных</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll-wrapper">
+              <table class="articles-table">
+                <thead>
+                  <tr>
+                    <th>Артикул</th>
+                    <th>Текущая выручка</th>
+                    <th>Предыдущая выручка</th>
+                    <th>Изменение</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr 
+                    v-for="item in salesData" 
+                    :key="item.nm_id" 
+                    @click="$router.push(`/article/${item.nm_id}`)"
+                    class="data-row"
+                  >
+                    <td>{{ item.nm_id }}</td>
+                    <td>{{ formatCurrency(item.current_revenue) }}</td>
+                    <td>{{ formatCurrency(item.previous_revenue) }}</td>
+                    <td :class="getChangeClass(item.revenue_change)">
+                      {{ item.revenue_change }}% 
+                      <span v-if="item.revenue_change > 0">↑</span>
+                      <span v-else-if="item.revenue_change < 0">↓</span>
+                    </td>
+                  </tr>
+                  <tr v-if="salesData.length === 0">
+                    <td colspan="4" class="no-data">Нажмите кнопку для загрузки данных</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -274,36 +276,39 @@ export default {
           </div>
           <div class="table-container">
             <h4>Топ артикулов по скидкам</h4>
-            <table class="articles-table">
-              <thead>
-                <tr>
-                  <th>Артикул</th>
-                  <th>Текущая скидка</th>
-                  <th>Предыдущая скидка</th>
-                  <th>Изменение</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr 
-                  v-for="item in discountData" 
-                  :key="item.nm_id" 
-                  @click="$router.push(`/article/${item.nm_id}`)"
-                  class="data-row"
-                >
-                  <td>{{ item.nm_id }}</td>
-                  <td>{{ item.current_discount }}%</td>
-                  <td>{{ item.previous_discount }}%</td>
-                  <td :class="getChangeClass(item.discount_change)">
-                    {{ item.discount_change }}% 
-                    <span v-if="item.discount_change > 0">↑</span>
-                    <span v-else-if="item.discount_change < 0">↓</span>
-                  </td>
-                </tr>
-                <tr v-if="discountData.length === 0">
-                  <td colspan="4" class="no-data">Нажмите кнопку для загрузки данных</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll-wrapper">
+              <table class="articles-table">
+                <thead>
+                  <tr>
+                    <th>Артикул</th>
+                    <th>Текущая скидка</th>
+                    <th>Предыдущая скидка</th>
+                    <th>Изменение</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr 
+                    v-for="item in discountData" 
+                    :key="item.nm_id" 
+                    @click="$router.push(`/article/${item.nm_id}`)"
+                    class="data-row"
+                  >
+                    <td>{{ item.nm_id }}</td>
+                    <td>{{ item.current_discount }}%</td>
+                    <td>{{ item.previous_discount }}%</td>
+                    <td :class="getChangeClass(item.discount_change)">
+                      {{ item.discount_change }}% 
+                      <span v-if="item.discount_change > 0">↑</span>
+                      <span v-else-if="item.discount_change < 0">↓</span>
+                    </td>
+                  </tr>
+                  <tr v-if="discountData.length === 0">
+                    <td colspan="4" class="no-data">Нажмите кнопку для загрузки данных</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
           </div>
         </div>
 
@@ -315,36 +320,39 @@ export default {
           </div>
           <div class="table-container">
             <h4>Топ артикулов по отменам</h4>
-            <table class="articles-table">
-              <thead>
-                <tr>
-                  <th>Артикул</th>
-                  <th>Текущие отмены</th>
-                  <th>Предыдущие отмены</th>
-                  <th>Изменение</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr 
-                  v-for="item in cancelsData" 
-                  :key="item.nm_id" 
-                  @click="$router.push(`/article/${item.nm_id}`)"
-                  class="data-row"
-                >
-                  <td>{{ item.nm_id }}</td>
-                  <td>{{ item.current_cancels }}</td>
-                  <td>{{ item.previous_cancels }}</td>
-                  <td :class="getChangeClass(item.cancel_change)">
-                    {{ item.cancel_change }}% 
-                    <span v-if="item.cancel_change > 0">↑</span>
-                    <span v-else-if="item.cancel_change < 0">↓</span>
-                  </td>
-                </tr>
-                <tr v-if="cancelsData.length === 0">
-                  <td colspan="4" class="no-data">Нажмите кнопку для загрузки данных</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll-wrapper">
+              <table class="articles-table">
+                <thead>
+                  <tr>
+                    <th>Артикул</th>
+                    <th>Текущие отмены</th>
+                    <th>Предыдущие отмены</th>
+                    <th>Изменение</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr 
+                    v-for="item in cancelsData" 
+                    :key="item.nm_id" 
+                    @click="$router.push(`/article/${item.nm_id}`)"
+                    class="data-row"
+                  >
+                    <td>{{ item.nm_id }}</td>
+                    <td>{{ item.current_cancels }}</td>
+                    <td>{{ item.previous_cancels }}</td>
+                    <td :class="getChangeClass(item.cancel_change)">
+                      {{ item.cancel_change }}% 
+                      <span v-if="item.cancel_change > 0">↑</span>
+                      <span v-else-if="item.cancel_change < 0">↓</span>
+                    </td>
+                  </tr>
+                  <tr v-if="cancelsData.length === 0">
+                    <td colspan="4" class="no-data">Нажмите кнопку для загрузки данных</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
           </div>
         </div>
 
@@ -356,28 +364,31 @@ export default {
           </div>
           <div class="table-container">
             <h4>Топ регионов по заказам</h4>
-            <table class="articles-table">
-              <thead>
-                <tr>
-                  <th>Регион</th>
-                  <th>Текущие заказы</th>
-                  <th>Предыдущие заказы</th>
-                  <th>Изменение</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in regionsData" :key="item.region">
-                  <td>{{ item.region }}</td>
-                  <td>{{ item.current_orders }}</td>
-                  <td>{{ item.previous_orders }}</td>
-                  <td :class="getChangeClass(item.order_change)">
-                    {{ item.order_change }}% 
-                    <span v-if="item.order_change > 0">↑</span>
-                    <span v-else-if="item.order_change < 0">↓</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll-wrapper">
+              <table class="articles-table">
+                <thead>
+                  <tr>
+                    <th>Регион</th>
+                    <th>Текущие заказы</th>
+                    <th>Предыдущие заказы</th>
+                    <th>Изменение</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in regionsData" :key="item.region">
+                    <td>{{ item.region }}</td>
+                    <td>{{ item.current_orders }}</td>
+                    <td>{{ item.previous_orders }}</td>
+                    <td :class="getChangeClass(item.order_change)">
+                      {{ item.order_change }}% 
+                      <span v-if="item.order_change > 0">↑</span>
+                      <span v-else-if="item.order_change < 0">↓</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
           </div>
         </div>
       </div>
